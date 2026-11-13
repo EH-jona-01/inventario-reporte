@@ -92,6 +92,9 @@
   .cat { border: 1px solid var(--line); padding: 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
   .cat h3 { font-size: 1.125rem; }
   .cat p { color: var(--muted); font-size: 1rem; }
+  [hidden] { display: none !important; }
+  .rank .v.warn { color: var(--warn); }
+  .rank .v.ok { color: var(--ok); }
   .foot { border-top: 1px solid var(--line); padding-top: 1.25rem; color: var(--muted); font-size: 0.9375rem; display: flex; flex-direction: column; gap: 0.4rem; }
   @media (min-width: 640px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
@@ -157,6 +160,14 @@
     <section class="solo-datos">
       <h2>Qué hizo cada empleado</h2>
       <ul class="rank" id="quien"></ul>
+    </section>
+
+    <section class="solo-datos" id="sec-deudas" hidden>
+      <h2>Dinero que deben los empleados</h2>
+      <p class="note" id="deudas-note"></p>
+      <ul class="rank" id="deudas"></ul>
+      <h3 id="deudas-mov-t">Últimos movimientos</h3>
+      <ul class="rank" id="deudas-mov"></ul>
     </section>
 
     <section class="solo-datos">
@@ -279,10 +290,35 @@ function categorias() {
     `<div class="cat"><h3>${esc(k)}</h3><p>${c.n} materiales · ${c.p.toLocaleString('es-MX')} piezas</p><p>${c.b ? '<span class="pill warn" style="margin:0">' + c.b + ' por revisar</span>' : '<span class="pill ok" style="margin:0">Todo disponible</span>'}</p></div>`).join('');
 }
 
+const pesos = n => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+function deudasEjemplo() {
+  const d = n => { const x = new Date(hoy); x.setDate(hoy.getDate() - n); return iso(x); };
+  return { total: 1950, porEmpleado: [
+    { empleado: 'Empleado A', saldo: 1250, movimientos: 3, ultimo: d(2) }, { empleado: 'Empleado B', saldo: 700, movimientos: 2, ultimo: d(6) },
+    { empleado: 'Empleado C', saldo: 0, movimientos: 2, ultimo: d(9) } ],
+    movimientos: [ { fecha: d(2), empleado: 'Empleado A', tipo: 'Abono', monto: 250, motivo: '' }, { fecha: d(6), empleado: 'Empleado B', tipo: 'Cargo', monto: 700, motivo: 'Herramienta' },
+    { fecha: d(9), empleado: 'Empleado C', tipo: 'Abono', monto: 300, motivo: 'Liquidó' }, { fecha: d(12), empleado: 'Empleado A', tipo: 'Cargo', monto: 1500, motivo: 'Adelanto' } ] };
+}
+function deudas() {
+  const d = modo === 'ejemplo' ? deudasEjemplo() : DATA.deudas, sec = $('#sec-deudas');
+  if (!d || !Array.isArray(d.porEmpleado)) { sec.hidden = true; return; }
+  sec.hidden = false;
+  const con = d.porEmpleado.filter(e => e.saldo > 0.004), max = Math.max(1, ...d.porEmpleado.map(e => e.saldo));
+  $('#deudas-note').textContent = con.length ? con.length + (con.length === 1 ? ' empleado debe' : ' empleados deben') + ' dinero. Total pendiente: ' + pesos(d.total) + '.' : 'Nadie debe dinero por ahora.';
+  $('#deudas').innerHTML = d.porEmpleado.length ? d.porEmpleado.map(e => {
+    const debe = e.saldo > 0.004;
+    return `<li><span class="n">${esc(e.empleado)}<small>${debe ? e.movimientos + (e.movimientos === 1 ? ' movimiento' : ' movimientos') + ' · último ' + fmtFecha(e.ultimo) : 'Al corriente'}</small></span><span class="v ${debe ? 'warn' : 'ok'}">${debe ? pesos(e.saldo) : '$0'}</span><span class="bar"><i class="${debe ? 'warn' : ''}" style="width:${debe ? Math.round(e.saldo / max * 100) : 0}%"></i></span></li>`;
+  }).join('') : '<li class="empty">Todavía no hay deudas registradas.</li>';
+  const mov = d.movimientos || [];
+  $('#deudas-mov-t').hidden = !mov.length;
+  $('#deudas-mov').innerHTML = mov.map(m =>
+    `<li><span class="n">${esc(m.empleado)}<span class="pill ${m.tipo === 'Cargo' ? 'warn' : 'ok'}">${esc(m.tipo === 'Cargo' ? 'Se le anotó' : 'Pagó')}</span><small>${fmtFecha(m.fecha)}${m.motivo ? ' · ' + esc(m.motivo) : ''}</small></span><span class="v">${m.tipo === 'Cargo' ? '+' : '−'}${pesos(m.monto)}</span></li>`).join('');
+}
+
 function pinta() {
   $('#m-gen').textContent = 'Generado el ' + fmtFecha(DATA.generado.slice(0, 10)) + ' ' + DATA.generado.slice(11);
   $('#m-act').textContent = DATA.actualizado ? 'Existencias al ' + fmtFecha(DATA.actualizado.slice(0, 10)) + ' ' + DATA.actualizado.slice(11) : '';
-  kpis(); chart(); rankings(); atencion(); categorias();
+  kpis(); chart(); rankings(); deudas(); atencion(); categorias();
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === vista)));
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { vista = b.dataset.v; try { localStorage.setItem('rep-vista', vista); } catch (e) {} pinta(); }));
