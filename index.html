@@ -290,6 +290,14 @@ $('#sw').addEventListener('click', () => { modo = modo === 'real' ? 'ejemplo' : 
   $('#sw').setAttribute('aria-pressed', String(modo === 'ejemplo')); $('#sw').textContent = modo === 'ejemplo' ? 'Volver a los datos reales' : 'Ver con datos de ejemplo'; pinta(); });
 const URL_DATOS = 'https://appn8n-n8n.q0jp2w.easypanel.host/webhook/inventario-reporte/datos';
 let codigo = ''; try { codigo = localStorage.getItem('rep-codigo') || ''; } catch (e) {}
+// Enlace de acceso directo: .../#c=CODIGO. El código viaja en la parte del enlace que el navegador no manda a ningún servidor y se borra de la barra al entrar.
+(function () {
+  const m = /^#c=(.+)$/.exec(location.hash);
+  if (!m) return;
+  try { codigo = decodeURIComponent(m[1]).trim(); } catch (e) { return; }
+  try { localStorage.setItem('rep-codigo', codigo); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+})();
 let cargando = false;
 function estado(msg, clase) { const e = $('#estado'); e.textContent = msg; e.className = 'estado ' + (clase || ''); }
 function mostrarLogin(msg) { document.body.classList.add('sinsesion'); $('#login-msg').textContent = msg || ''; }
