@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B3F66">
+<meta name="robots" content="noindex">
+<title>Reporte de inventario</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: una columna de tarjetas pensada para el celular; cifras grandes arriba, gráficas con pestañas de día, semana y hora, y listas de atención abajo. */
+  :root {
+    --bg: #E9ECEF; --paper: #FBFCFD; --ink: #14181D; --muted: #39414B; --line: #D3D8DE;
+    --accent: #1B3F66; --bar: #2C5C8F; --bar-soft: #C9D6E6; --ok: #1F6B43; --warn: #8A5A00; --crit: #A82A22;
+    --ok-bg: #DDF0E4; --warn-bg: #FBEBC8; --crit-bg: #F8DEDB;
+    --tint-1: #C4A052; --tint-2: #84506F; --tint-3: #2C5C8F;
+    --display: "Bodoni Moda", "Bodoni MT", Didot, Georgia, serif;
+    --body: "Hanken Grotesk", "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1215; --paper: #171B20; --ink: #EEF1F4; --muted: #C3CAD2; --line: #2C333C;
+      --accent: #A9CCEE; --bar: #6FA3D6; --bar-soft: #2A3A4D; --ok: #7FD2A1; --warn: #F0C46A; --crit: #FF9A93;
+      --ok-bg: #173325; --warn-bg: #3A2D0E; --crit-bg: #3F1D1A;
+      --tint-1: #D2B36A; --tint-2: #A56C8E; --tint-3: #5E93C9; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1215; --paper: #171B20; --ink: #EEF1F4; --muted: #C3CAD2; --line: #2C333C;
+    --accent: #A9CCEE; --bar: #6FA3D6; --bar-soft: #2A3A4D; --ok: #7FD2A1; --warn: #F0C46A; --crit: #FF9A93;
+    --ok-bg: #173325; --warn-bg: #3A2D0E; --crit-bg: #3F1D1A;
+    --tint-1: #D2B36A; --tint-2: #A56C8E; --tint-3: #5E93C9; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 1.0625rem; line-height: 1.55;
+    padding-block: clamp(1rem, 4vw, 3rem);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1, h2, h3, p, ul, dl, dd { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  button { font: inherit; color: inherit; }
+  .sheet { max-width: 56rem; margin-inline: auto; background: var(--paper); border: 1px solid var(--line); }
+  .tint { height: 5px; background: linear-gradient(90deg, var(--tint-1), var(--tint-2) 45%, var(--tint-3)); }
+  .inner { display: flex; flex-direction: column; gap: clamp(2rem, 5vw, 3rem); padding: clamp(1.25rem, 5vw, 3.5rem); }
+  .label { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-family: var(--display); font-weight: 500; font-size: clamp(2rem, 7vw, 3.2rem); line-height: 1.05; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 500; font-size: 1.75rem; line-height: 1.15; text-wrap: balance; }
+  .head { display: flex; flex-direction: column; gap: 0.6rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1.5rem; color: var(--muted); font-size: 1rem; }
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  .note { color: var(--muted); font-size: 1rem; max-width: 42rem; }
+
+  .banner { display: none; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); padding: 0.75rem 1rem; font-weight: 600; }
+  body.ejemplo .banner { display: block; }
+  .switch { align-self: flex-start; background: none; border: 1px solid var(--line); padding: 0.55rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9375rem; }
+  .switch[aria-pressed="true"] { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+
+  .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .kpi { border: 1px solid var(--line); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.15rem; }
+  .kpi b { font-family: var(--display); font-weight: 500; font-size: 2.6rem; line-height: 1; font-variant-numeric: lining-nums; }
+  .kpi span { color: var(--muted); font-size: 1rem; }
+  .kpi.crit b { color: var(--crit); } .kpi.warn b { color: var(--warn); }
+
+  .tabs { display: flex; gap: 0.4rem; }
+  .tab { flex: 1; background: none; border: 1px solid var(--line); padding: 0.6rem 0.5rem; cursor: pointer; font-weight: 600; }
+  .tab[aria-pressed="true"] { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 190px; padding-top: 1.5rem; border-bottom: 2px solid var(--line); }
+  .col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; position: relative; }
+  .col i { display: block; width: 100%; background: var(--bar); min-height: 2px; }
+  .col.zero i { background: var(--bar-soft); height: 2px !important; }
+  .col em { font-style: normal; font-size: 0.8125rem; font-weight: 700; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+  .axis { display: flex; gap: 3px; }
+  .axis span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 0.75rem; color: var(--muted); overflow: hidden; white-space: nowrap; }
+  .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; }
+  .insights div { border-left: 3px solid var(--accent); padding: 0.2rem 0 0.2rem 0.8rem; }
+  .insights b { display: block; font-size: 1.25rem; }
+  .insights span { color: var(--muted); font-size: 0.9375rem; }
+
+  .rank li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.2rem 1rem; padding: 0.7rem 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .rank li:last-child { border-bottom: 1px solid var(--line); }
+  .rank .n { font-weight: 600; overflow-wrap: anywhere; }
+  .rank .n small { display: block; color: var(--muted); font-weight: 400; font-size: 0.9375rem; }
+  .rank .v { font-family: var(--display); font-size: 1.35rem; font-variant-numeric: tabular-nums lining-nums; text-align: right; }
+  .rank .bar { grid-column: 1 / -1; height: 8px; background: var(--bar-soft); position: relative; }
+  .rank .bar i { position: absolute; inset: 0 auto 0 0; background: var(--bar); }
+  .rank .bar i.crit { background: var(--crit); } .rank .bar i.warn { background: var(--warn); }
+  .pill { display: inline-block; font-size: 0.8125rem; font-weight: 700; padding: 0.1rem 0.6rem; margin-left: 0.4rem; vertical-align: middle; }
+  .pill.crit { background: var(--crit-bg); color: var(--crit); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .empty { color: var(--muted); padding: 1rem 0; }
+  .cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
+  .cat { border: 1px solid var(--line); padding: 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+  .cat h3 { font-size: 1.125rem; }
+  .cat p { color: var(--muted); font-size: 1rem; }
+  .foot { border-top: 1px solid var(--line); padding-top: 1.25rem; color: var(--muted); font-size: 0.9375rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  @media (min-width: 640px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.75rem; }
+  .bar .estado { flex: 1 1 14rem; color: var(--muted); font-size: 0.9375rem; }
+  .bar .estado.err { color: var(--crit); font-weight: 600; }
+  .btn { background: none; border: 1px solid var(--line); padding: 0.55rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9375rem; }
+  .btn.primario { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+  #login form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 24rem; }
+  #login input { font: inherit; padding: 0.8rem 0.9rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+  #login .msg { color: var(--crit); font-weight: 600; min-height: 1.5em; }
+  body.sinsesion .solo-datos { display: none !important; }
+  body:not(.sinsesion) #login { display: none; }
+</style>
+</head>
+<body class="sinsesion">
+
+<main class="sheet">
+  <div class="tint"></div>
+  <div class="inner">
+
+    <header class="head">
+      <p class="label">Reporte de inventario</p>
+      <h1>Cómo va el inventario del taller</h1>
+      <p class="meta"><span>Taller de acero inoxidable</span><span id="m-gen"></span><span id="m-act"></span></p>
+    </header>
+
+    <div class="bar solo-datos"><span class="estado" id="estado" role="status"></span><button class="btn primario" id="btn-act" type="button">Actualizar</button><button class="btn" id="btn-salir" type="button">Salir</button></div>
+
+    <section id="login">
+      <h2>Entrar al reporte</h2>
+      <p class="note">Escribe el código de acceso que te dio quien instaló el sistema. Se queda guardado en este navegador.</p>
+      <form id="form-login"><input id="codigo" type="password" autocomplete="off" placeholder="Código de acceso" aria-label="Código de acceso" required><button class="btn primario" type="submit">Entrar</button><p class="msg" id="login-msg" role="alert"></p></form>
+    </section>
+
+    <button class="switch solo-datos" id="sw" type="button" aria-pressed="false">Ver con datos de ejemplo</button>
+    <p class="banner">Datos de ejemplo. Los movimientos de este reporte no son del taller: sirven para ver cómo se ve con más actividad.</p>
+
+    <section class="solo-datos">
+      <h2>Resumen</h2>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <section class="solo-datos">
+      <h2>Actividad</h2>
+      <p class="note" id="act-note"></p>
+      <div class="tabs" role="group" aria-label="Periodo">
+        <button class="tab" data-v="dia" aria-pressed="true" type="button">Por día</button>
+        <button class="tab" data-v="semana" aria-pressed="false" type="button">Por semana</button>
+        <button class="tab" data-v="hora" aria-pressed="false" type="button">Por hora</button>
+      </div>
+      <div class="chart" id="chart" role="img" aria-label="Movimientos registrados"></div>
+      <div class="axis" id="axis"></div>
+      <div class="insights" id="insights"></div>
+    </section>
+
+    <section class="solo-datos">
+      <h2>Materiales que más salen</h2>
+      <ul class="rank" id="top"></ul>
+    </section>
+
+    <section class="solo-datos">
+      <h2>Qué hizo cada empleado</h2>
+      <ul class="rank" id="quien"></ul>
+    </section>
+
+    <section class="solo-datos">
+      <h2>Para comprar o revisar</h2>
+      <p class="note">Materiales agotados o por debajo del mínimo, del más urgente al menos urgente.</p>
+      <ul class="rank" id="atencion"></ul>
+    </section>
+
+    <section class="solo-datos">
+      <h2>Por categoría</h2>
+      <div class="cats" id="cats"></div>
+    </section>
+
+    <div class="foot solo-datos">
+      <p><strong>Qué incluye este reporte.</strong> Las existencias vienen de la copia del Excel del taller. Los movimientos son los que registraron los empleados por Telegram; los del administrador y lo que se capture a mano en el Excel no aparecen aquí.</p>
+      <p><strong>Valor del inventario.</strong> No se muestra porque los costos del Excel todavía no son los reales del taller.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+let DATA = null;
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let modo = 'real', vista = 'dia';
+try { vista = localStorage.getItem('rep-vista') || 'dia'; } catch (e) {}
+
+const pad = n => String(n).padStart(2, '0');
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+let hoy = new Date();
+const fmtDia = d => d.getDate() + ' ' + MES[d.getMonth()];
+const fmtFecha = s => fmtDia(parse(s));
+const lunes = d => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+
+function ejemplo() {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const usuarios = ['Empleado A', 'Empleado B', 'Empleado C'];
+  const codigos = DATA.materiales.map(m => m.codigo);
+  const out = [];
+  for (let i = 0; i < 56; i++) {
+    const dia = new Date(hoy); dia.setDate(hoy.getDate() - i);
+    const finde = dia.getDay() === 0 || dia.getDay() === 6;
+    const n = finde ? Math.floor(rnd() * 3) : 3 + Math.floor(rnd() * 8);
+    for (let k = 0; k < n; k++) {
+      const pico = rnd() < 0.55 ? 9 + Math.floor(rnd() * 4) : 8 + Math.floor(rnd() * 10);
+      out.push({ fecha: iso(dia), hora: pico, usuario: usuarios[Math.floor(rnd() * 3)], tipo: rnd() < 0.25 ? 'Entrada' : 'Salida',
+                 cantidad: 1 + Math.floor(rnd() * 4), codigo: codigos[Math.floor(rnd() * Math.min(codigos.length, 14))] });
+    }
+  }
+  return out;
+}
+const movs = () => modo === 'real' ? DATA.cambios : (ejemplo._c || (ejemplo._c = ejemplo()));
+const nombre = c => { const m = DATA.materiales.find(x => x.codigo === c); return m ? m.nombre : c; };
+
+function kpis() {
+  const m = DATA.materiales, ag = m.filter(x => x.estado === 'AGOTADO').length, bj = m.filter(x => x.estado === 'STOCK BAJO').length;
+  const piezas = m.reduce((a, x) => a + x.existencia, 0);
+  $('#kpis').innerHTML =
+    `<div class="kpi"><b>${m.length}</b><span>materiales</span></div>` +
+    `<div class="kpi"><b>${piezas.toLocaleString('es-MX')}</b><span>piezas en bodega</span></div>` +
+    `<div class="kpi warn"><b>${bj}</b><span>con stock bajo</span></div>` +
+    `<div class="kpi crit"><b>${ag}</b><span>agotados</span></div>`;
+}
+
+function buckets() {
+  const M = movs(); let etiquetas = [], vals = [], tips = [];
+  if (vista === 'dia') {
+    for (let i = 13; i >= 0; i--) { const d = new Date(hoy); d.setDate(hoy.getDate() - i); etiquetas.push(i % 2 === 0 ? String(d.getDate()) : ''); tips.push(fmtDia(d)); vals.push(M.filter(x => x.fecha === iso(d))); }
+  } else if (vista === 'semana') {
+    for (let i = 7; i >= 0; i--) { const d = lunes(hoy); d.setDate(d.getDate() - 7 * i); const f = new Date(d); f.setDate(d.getDate() + 6);
+      etiquetas.push(d.getDate() + '/' + (d.getMonth() + 1)); tips.push('Semana del ' + fmtDia(d) + ' al ' + fmtDia(f));
+      vals.push(M.filter(x => { const p = parse(x.fecha); return p >= d && p <= f; })); }
+  } else {
+    for (let h = 0; h < 24; h++) { etiquetas.push(h % 3 === 0 ? String(h) : ''); tips.push(h + ':00 a ' + h + ':59'); vals.push(M.filter(x => x.hora === h)); }
+  }
+  return { etiquetas, tips, vals };
+}
+
+function chart() {
+  const { etiquetas, tips, vals } = buckets(); const cuenta = vals.map(v => v.length), max = Math.max(1, ...cuenta);
+  $('#chart').innerHTML = cuenta.map((n, i) => `<div class="col ${n ? '' : 'zero'}" title="${esc(tips[i])}: ${n} movimientos"><em>${n || ''}</em><i style="height:${Math.round(n / max * 130)}px"></i></div>`).join('');
+  $('#axis').innerHTML = etiquetas.map(e => `<span>${esc(e)}</span>`).join('');
+  const total = cuenta.reduce((a, b) => a + b, 0), piezas = vals.flat().reduce((a, x) => a + x.cantidad, 0);
+  const iMax = cuenta.indexOf(Math.max(...cuenta));
+  const unidad = vista === 'dia' ? 'los últimos 14 días' : vista === 'semana' ? 'las últimas 8 semanas' : 'todo el historial';
+  $('#act-note').textContent = vista === 'hora' ? 'A qué hora del día se registran más movimientos.' : 'Movimientos registrados en ' + unidad + '.';
+  $('#insights').innerHTML = total
+    ? `<div><b>${total}</b><span>movimientos, ${piezas} piezas</span></div><div><b>${esc(tips[iMax])}</b><span>el periodo con más movimientos (${cuenta[iMax]})</span></div>`
+    : `<div><b>Sin movimientos</b><span>en este periodo</span></div>`;
+}
+
+function lista(el, filas, vacio) {
+  const max = Math.max(1, ...filas.map(f => f.v));
+  $(el).innerHTML = filas.length ? filas.map(f =>
+    `<li><span class="n">${esc(f.n)}<small>${esc(f.s)}</small></span><span class="v">${f.v}</span><span class="bar"><i class="${f.c || ''}" style="width:${Math.round(f.v / max * 100)}%"></i></span></li>`).join('')
+    : `<li class="empty">${vacio}</li>`;
+}
+
+function rankings() {
+  const M = movs(), sal = {}, usu = {};
+  M.forEach(x => { if (x.tipo === 'Salida') sal[x.codigo] = (sal[x.codigo] || 0) + x.cantidad; (usu[x.usuario] = usu[x.usuario] || { n: 0, p: 0 }); usu[x.usuario].n++; usu[x.usuario].p += x.cantidad; });
+  lista('#top', Object.entries(sal).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c, v]) => ({ n: nombre(c), s: c + ' · piezas que salieron', v })), 'Todavía no hay salidas registradas.');
+  lista('#quien', Object.entries(usu).sort((a, b) => b[1].n - a[1].n).map(([u, o]) => ({ n: u, s: o.p + ' piezas movidas', v: o.n })), 'Todavía no hay movimientos.');
+}
+
+function atencion() {
+  const filas = DATA.materiales.filter(x => x.estado === 'AGOTADO' || x.estado === 'STOCK BAJO')
+    .sort((a, b) => (a.existencia - a.minimo) - (b.existencia - b.minimo) || a.existencia - b.existencia).slice(0, 12);
+  $('#atencion').innerHTML = filas.length ? filas.map(x => {
+    const ag = x.estado === 'AGOTADO', pct = x.minimo ? Math.min(100, Math.round(x.existencia / x.minimo * 100)) : 0;
+    return `<li><span class="n">${esc(x.nombre)}<span class="pill ${ag ? 'crit' : 'warn'}">${ag ? 'Agotado' : 'Stock bajo'}</span><small>${esc(x.codigo)} · mínimo ${x.minimo}</small></span><span class="v">${x.existencia}</span><span class="bar"><i class="${ag ? 'crit' : 'warn'}" style="width:${pct}%"></i></span></li>`;
+  }).join('') : '<li class="empty">Nada por debajo del mínimo.</li>';
+}
+
+function categorias() {
+  const por = {}; DATA.materiales.forEach(x => { const c = por[x.categoria || 'Sin categoría'] = por[x.categoria || 'Sin categoría'] || { n: 0, p: 0, b: 0 }; c.n++; c.p += x.existencia; if (x.estado !== 'DISPONIBLE') c.b++; });
+  $('#cats').innerHTML = Object.entries(por).map(([k, c]) =>
+    `<div class="cat"><h3>${esc(k)}</h3><p>${c.n} materiales · ${c.p.toLocaleString('es-MX')} piezas</p><p>${c.b ? '<span class="pill warn" style="margin:0">' + c.b + ' por revisar</span>' : '<span class="pill ok" style="margin:0">Todo disponible</span>'}</p></div>`).join('');
+}
+
+function pinta() {
+  $('#m-gen').textContent = 'Generado el ' + fmtFecha(DATA.generado.slice(0, 10)) + ' ' + DATA.generado.slice(11);
+  $('#m-act').textContent = DATA.actualizado ? 'Existencias al ' + fmtFecha(DATA.actualizado.slice(0, 10)) + ' ' + DATA.actualizado.slice(11) : '';
+  kpis(); chart(); rankings(); atencion(); categorias();
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === vista)));
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { vista = b.dataset.v; try { localStorage.setItem('rep-vista', vista); } catch (e) {} pinta(); }));
+$('#sw').addEventListener('click', () => { modo = modo === 'real' ? 'ejemplo' : 'real'; document.body.classList.toggle('ejemplo', modo === 'ejemplo');
+  $('#sw').setAttribute('aria-pressed', String(modo === 'ejemplo')); $('#sw').textContent = modo === 'ejemplo' ? 'Volver a los datos reales' : 'Ver con datos de ejemplo'; pinta(); });
+const URL_DATOS = 'https://appn8n-n8n.q0jp2w.easypanel.host/webhook/inventario-reporte/datos';
+let codigo = ''; try { codigo = localStorage.getItem('rep-codigo') || ''; } catch (e) {}
+let cargando = false;
+function estado(msg, clase) { const e = $('#estado'); e.textContent = msg; e.className = 'estado ' + (clase || ''); }
+function mostrarLogin(msg) { document.body.classList.add('sinsesion'); $('#login-msg').textContent = msg || ''; }
+function olvidar() { codigo = ''; try { localStorage.removeItem('rep-codigo'); } catch (e) {} }
+async function cargar() {
+  if (!codigo) { mostrarLogin(); return; }
+  if (cargando) return;
+  cargando = true; $('#btn-act').disabled = true; estado('Actualizando…');
+  try {
+    const r = await fetch(URL_DATOS, { headers: { 'X-Clave-Reporte': codigo }, cache: 'no-store' });
+    if (r.status === 401 || r.status === 403) { olvidar(); DATA = null; mostrarLogin('El código no es correcto. Revísalo e inténtalo de nuevo.'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d || !Array.isArray(d.materiales) || !Array.isArray(d.cambios)) throw new Error('Respuesta inesperada');
+    DATA = d; hoy = parse(DATA.generado.slice(0, 10)); ejemplo._c = null;
+    try { localStorage.setItem('rep-codigo', codigo); } catch (e) {}
+    document.body.classList.remove('sinsesion'); pinta(); estado('Actualizado a las ' + DATA.generado.slice(11), '');
+  } catch (e) {
+    if (DATA) estado('No pude actualizar. Muestro lo último que se cargó; revisa tu conexión.', 'err');
+    else mostrarLogin('No se pudo conectar con el servidor. Revisa tu internet e inténtalo de nuevo.');
+  } finally { cargando = false; $('#btn-act').disabled = false; }
+}
+$('#form-login').addEventListener('submit', e => { e.preventDefault(); codigo = $('#codigo').value.trim(); $('#codigo').value = ''; cargar(); });
+$('#btn-act').addEventListener('click', cargar);
+$('#btn-salir').addEventListener('click', () => { olvidar(); DATA = null; mostrarLogin(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && codigo && DATA) cargar(); });
+setInterval(() => { if (!document.hidden && codigo && DATA) cargar(); }, 60000);
+cargar();
+</script>
+</body>
+</html>
